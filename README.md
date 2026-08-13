@@ -97,18 +97,15 @@ sudo apt install -y \
 
 然后使用 rustup 安装稳定版 Rust。
 
-运行：
+### Windows环境下运行
+```bash
+winget install Rustlang.Rustup
+```
+
+启动运行：
 
 ```bash
 cargo run --release -- --config config/default.toml
-```
-
-如果你希望把这个目录初始化成自己的 Git 仓库：
-
-```bash
-git init
-git add .
-git commit -m "Initial standalone RoboMaster AimSim"
 ```
 
 ## 4. 快速通信测试
