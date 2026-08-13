@@ -1,120 +1,139 @@
-# Benchmark Semantics
+# Benchmark 基准测试说明
 
-## Sweep
+## 参数遍历
 
-The default sweep is:
+默认测试参数为：
 
 ```text
-distance:          3, 5, 7, 10 m
-RPM:               0, 30, 60, 120, 180
-translation speed: 0, 1, 2, 3 m/s
+距离：            3, 5, 7, 10 m
+RPM：             0, 30, 60, 120, 180
+平移速度：         0, 1, 2, 3 m/s
 ```
 
-One repeat therefore has 80 trials.
+因此每重复一轮完整参数组合，共包含 80 个 Trial（单次试验）。
 
-## Trial lifecycle
+## 单次试验生命周期
 
-### Warmup
+### Warmup：预热阶段
 
-- reset target pose, motion phase, HP, gimbal state, score, and old projectiles;
-- apply the new distance/RPM/speed condition;
-- target already moves during warmup;
-- external auto-aim receives camera/telemetry and can converge;
-- projectile firing is blocked from being accepted by the benchmark.
+进入新工况后会执行以下操作：
 
-### Running
+- 重置靶车姿态、运动相位、HP、云台状态、统计数据以及旧弹丸；
+- 应用新的距离、RPM 和平移速度参数；
+- 靶车在 Warmup 阶段已经开始按照目标工况运动；
+- 外部自瞄持续接收相机画面与遥测数据，可以在此阶段完成 Detector、Tracker、Predictor 等模块的收敛；
+- Benchmark 不接受 Warmup 阶段产生的弹丸作为正式测试弹丸。
 
-- external auto-aim fully controls yaw/pitch/fire;
-- each actually spawned projectile increments `shots`;
-- each shot can score at most one armor hit;
-- trial leaves Running when:
-  - `rounds_per_trial` actual shots have been generated, or
-  - `case_timeout_s` expires.
+### Running：正式测试阶段
 
-A fire command alone does not count as a shot.
-This makes planner/fire-gate behavior part of the result.
+在 Running 阶段：
 
-### Drain
+- 外部自瞄完整参与 yaw / pitch / fire 控制；
+- 每生成一颗真实物理弹丸，`shots` 增加 1；
+- 每颗弹丸最多只允许计入一次装甲板命中；
+- 满足以下任一条件时结束 Running：
+  - 实际生成的弹丸数量达到 `rounds_per_trial`；
+  - 运行时间超过 `case_timeout_s`。
 
-- no new benchmark shots are accepted;
-- already airborne projectiles can continue and score;
-- after `post_fire_grace_s`, the trial is finalized.
+仅收到一次 `fire` 命令**不算作一发弹丸**。
 
-This avoids incorrectly marking the final long-distance shots as misses simply because they were still in flight.
+因此，Planner 与开火门控策略本身也属于 Benchmark 的被测内容。
 
-## Metrics
+### Drain：在途弹丸等待阶段
 
-### Hit rate
+进入 Drain 后：
+
+- 不再接受新的 Benchmark 测试弹丸；
+- 已经在空中飞行的弹丸仍可继续运动并命中装甲板；
+- 等待 `post_fire_grace_s` 后才最终结算本次 Trial。
+
+这样可以避免远距离工况下，最后几颗弹丸仍在飞行途中就被提前当作未命中处理。
+
+## 评价指标
+
+### 命中率
 
 ```text
 hits / actual shots × 100%
 ```
 
-### Effective DPS
+其中 `actual shots` 指实际生成的物理弹丸数量，而不是鼠标点击次数或 `fire` 命令次数。
+
+### 有效 DPS
 
 ```text
-total scored damage / evaluation duration
+总有效伤害 / 实际评价时长
 ```
 
-The duration extends through Drain, so flight time needed for late hits is included.
+评价时长会覆盖 Drain 阶段，因此最后几颗弹丸所需的飞行时间也会被计入。
 
-### Peak rolling DPS
+### 峰值滚动 DPS
 
-Maximum damage-per-second value observed over the configured rolling window.
+在配置的滚动时间窗口内计算瞬时伤害速率，并记录整次 Trial 中出现过的最大值。
 
-### Kill time
+### 击杀时间
 
-Time from Running start until HP first reaches zero.
-Only successful kills have a kill-time value.
+从 Running 开始，到靶车 HP 第一次下降到 0 所经过的时间。
 
-### Kill success rate
+只有成功击杀的 Trial 才拥有有效的击杀时间。
 
-Across repeated trials of one condition:
+### 击杀成功率
+
+对于同一工况的多次重复试验：
 
 ```text
-successful kills / trials × 100%
+成功击杀次数 / Trial 总数 × 100%
 ```
 
-Always consider this alongside mean kill time. Otherwise a method that kills only a few easy trials could have an apparently good mean TTK.
+分析平均击杀时间时，应始终同时观察击杀成功率。
 
-### Timeout rate
+否则可能出现某种算法只在少数简单 Trial 中成功击杀，但由于这些成功样本很快，导致平均 TTK 看起来反而很好的误导情况。
 
-Fraction of trials where the external auto-aim failed to produce the requested actual-shot budget before `case_timeout_s`.
-This intentionally exposes overly conservative or broken fire logic.
+### 超时率
 
-## RPM degradation
+统计外部自瞄在 `case_timeout_s` 内未能完成目标实际发弹数量的 Trial 占比。
 
-When a 0-RPM baseline exists:
+该指标会主动暴露以下问题：
+
+- 开火阈值过于保守；
+- Planner 不愿意给出 `fire=true`；
+- 跟踪或预测异常导致长时间不满足开火条件；
+- 通信链路异常；
+- 火控逻辑失效。
+
+## RPM 性能退化
+
+存在 0 RPM 基准工况时，性能退化率定义为：
 
 ```text
 degradation(%) = (baseline - current) / baseline × 100
 ```
 
-The file `rpm_degradation.csv` applies this to hit rate and mean DPS.
+`rpm_degradation.csv` 会分别对命中率和平均 DPS 计算这一指标。
 
-## Recommended regression workflow
+它可以直接用于观察目标转速提高后，自瞄性能从哪个 RPM 开始明显下降。
+
+## 推荐的回归测试流程
 
 ```text
-algorithm commit A
+算法 commit A
   ↓
-3 repeats or more
+至少运行 3 次重复测试
   ↓
-archive benchmark_results/run_A
+归档 benchmark_results/run_A
 
-algorithm commit B
+算法 commit B
   ↓
-same effective_config.toml
+使用相同 effective_config.toml
   ↓
-archive benchmark_results/run_B
+归档 benchmark_results/run_B
 
-compare condition-level and RPM curves
+比较工况级 CSV 与 RPM 性能曲线
 ```
 
-For serious comparisons, keep simulation config identical and use more than one repeat per condition.
+如果需要进行正式算法对比，建议：
 
-
-## Operator inputs during Benchmark
-
-By default `operator.benchmark_auto_hold_inputs = true`. The runner emulates RMB+LMB so no human input is required, but a projectile still requires a fresh external command with `fire=true`. This keeps planner/fire-gate behavior inside the benchmark.
-
-Manual WASD chassis motion is disabled while the runner is active. The shooter root is reset to the world origin at the start of every trial so configured target distance remains reproducible.
+- 保持仿真配置完全一致；
+- 每个工况运行多次重复试验；
+- 同时比较命中率、DPS、击杀成功率、平均击杀时间与超时率；
+- 不要只用单次 Trial 的结果判断算法优劣。

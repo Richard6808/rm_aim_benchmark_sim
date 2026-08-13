@@ -1,18 +1,18 @@
-# Native Bridge Protocol
+# Native Bridge 通信协议
 
-Protocol version: `rm-aim-sim/2`
+协议版本：`rm-aim-sim/1`
 
-The Native Bridge is intentionally simple and language-independent.
+Native Bridge 的设计目标是保持简单、跨语言，并且与具体队伍的自瞄框架解耦。
 
-## 1. Gimbal command: UDP JSON
+## 1. 云台控制命令：UDP JSON
 
-Simulator listens at the configured `network.command_bind`, default:
+仿真器监听配置项 `network.command_bind` 指定的地址，默认值为：
 
 ```text
 127.0.0.1:39000
 ```
 
-Packet:
+数据包格式：
 
 ```json
 {
@@ -22,47 +22,38 @@ Packet:
 }
 ```
 
-Semantics:
+字段语义：
 
-- values are **absolute gimbal setpoints**, not delta commands;
-- angles are degrees;
-- the simulator applies configured yaw/pitch limits and maximum axis slew speeds;
-- `fire=true` is external **fire advice**, not unconditional firing; interactive mode still requires RMB + LMB;
-- command freshness is controlled by `operator.command_timeout_s` (default `0.35 s`); a stale command can never fire;
-- while RMB is released, mouse motion owns the gimbal and cached external yaw/pitch are not applied.
+- `yaw_deg` 和 `pitch_deg` 是**绝对云台目标角度**，不是增量命令；
+- 角度单位为度；
+- 仿真器会按照配置中的 yaw / pitch 限位以及云台最大角速度执行运动约束；
+- `fire=true` 表示持续给出开火建议，真实发射频率仍由弹丸发射冷却时间决定；
+- 如果大约 350 ms 内没有继续收到有效命令，则网络开火许可会失效，并回到人工控制逻辑。
 
-Current geometric sign convention:
+当前几何正负号约定：
 
-- zero pose looks along world `-Z`;
-- positive pitch rotates the muzzle upward;
-- positive yaw uses Bevy's positive rotation about `+Y` (from the initial `-Z` direction this turns toward `-X`).
+- 零位姿时枪口朝向世界坐标 `-Z`；
+- pitch 为正时，枪口向上旋转；
+- yaw 为正时，采用 Bevy 绕 `+Y` 轴的正方向旋转；从初始 `-Z` 朝向观察，会向 `-X` 方向转动。
 
-If your lower computer uses the opposite yaw sign, negate yaw in your adapter rather than changing the simulation world convention.
+如果你的下位机或自瞄项目采用相反的 yaw 正方向，建议在适配器中对 yaw 取反，而不是修改仿真世界本身的坐标约定。
 
-## 2. Telemetry: UDP JSON
+## 2. 遥测数据：UDP JSON
 
-Simulator sends to `network.telemetry_target`, default:
+仿真器向 `network.telemetry_target` 指定的地址发送遥测数据，默认值为：
 
 ```text
 127.0.0.1:39001
 ```
 
-Example shape:
+数据结构示例：
 
 ```json
 {
-  "protocol": "rm-aim-sim/2",
+  "protocol": "rm-aim-sim/1",
   "timestamp_ns": 1786610000000000000,
   "gimbal_yaw_deg": 12.1,
   "gimbal_pitch_deg": -4.0,
-  "auto_aim_enabled": true,
-  "operator_trigger_held": true,
-  "external_fire_advice": true,
-  "external_command_fresh": true,
-  "shooter_pose": {
-    "translation_m": [0.0, 0.0, 0.0],
-    "quaternion_xyzw": [0.0, 0.0, 0.0, 1.0]
-  },
   "gimbal_pose": {
     "translation_m": [0.0, 1.1, 0.0],
     "quaternion_xyzw": [0.0, 0.0, 0.0, 1.0]
@@ -91,97 +82,74 @@ Example shape:
   "hits": 13,
   "hit_rate_pct": 52.0,
   "total_damage": 130.0,
-  "average_dps": 26.0,
   "rolling_dps": 40.0
 }
 ```
 
-Notes:
+说明：
 
-- `timestamp_ns` is Unix/system time in nanoseconds;
-- translations are metres in world coordinates;
-- quaternion order is `[x, y, z, w]`;
-- camera is a perfect pinhole camera in the core model;
-- distortion coefficients are all zero unless a future camera model explicitly adds distortion.
+- `timestamp_ns` 为 Unix / 系统时钟纳秒时间戳；
+- 所有平移量单位均为米，使用世界坐标系；
+- 四元数排列顺序为 `[x, y, z, w]`；
+- 核心模型中的相机视为理想针孔相机；
+- 当前畸变系数默认为 0，除非未来显式加入带畸变的相机模型。
 
-## 3. Camera stream: TCP framed JPEG
+## 3. 相机图像流：TCP 分帧 JPEG
 
-Simulator listens at `network.camera_bind`, default:
+仿真器监听 `network.camera_bind` 指定的地址，默认值为：
 
 ```text
 127.0.0.1:39002
 ```
 
-A client connects and repeatedly reads:
+客户端建立 TCP 连接后，需要循环读取：
 
 ```text
-40-byte big-endian header
+40 字节大端序帧头
 JPEG payload
-40-byte big-endian header
+40 字节大端序帧头
 JPEG payload
 ...
 ```
 
-Header layout:
+帧头格式如下：
 
-| Offset | Bytes | Type | Meaning |
+| 偏移 | 字节数 | 类型 | 含义 |
 |---:|---:|---|---|
-| 0 | 8 | bytes | ASCII magic `AIMSIM01` |
-| 8 | 8 | `u64` | frame ID |
-| 16 | 8 | `u64` | capture timestamp ns |
-| 24 | 4 | `u32` | width |
-| 28 | 4 | `u32` | height |
-| 32 | 4 | `u32` | JPEG payload length |
-| 36 | 4 | `u32` | reserved, currently zero |
+| 0 | 8 | bytes | ASCII 魔数 `AIMSIM01` |
+| 8 | 8 | `u64` | 帧 ID |
+| 16 | 8 | `u64` | 图像采集时间戳，单位 ns |
+| 24 | 4 | `u32` | 图像宽度 |
+| 28 | 4 | `u32` | 图像高度 |
+| 32 | 4 | `u32` | JPEG payload 长度 |
+| 36 | 4 | `u32` | 保留字段，当前固定为 0 |
 
-Python format string:
+Python 对应格式：
 
 ```python
 struct.Struct("!8sQQIIII")
 ```
 
-The following `jpeg_len` bytes are a complete JPEG image.
+帧头之后紧跟 `jpeg_len` 字节的完整 JPEG 图像数据。
 
-## 4. Timing
+## 4. 时间戳约定
 
-Camera frames and telemetry both carry system-clock nanosecond timestamps so an adapter can place them into one time domain.
-For precise latency research, measure additional timestamps inside your detector/tracker/planner and do not replace simulator capture timestamps with receive time.
+相机帧与遥测数据都携带系统时钟纳秒时间戳，因此适配器可以把两类数据放入同一个时间域中进行对齐。
 
-## 5. Adapter policy
+如果需要研究视觉链路延迟，建议在 Detector、Tracker、Predictor、Planner 等模块内部继续记录各自的处理时间戳，并保留仿真器提供的原始采集时间。
 
-Keep team-specific protocol conversion outside the Rust simulation core.
-Examples:
+不要用网络接收时刻替换仿真器的图像采集时间戳，否则会把网络传输延迟错误地混入传感器时间。
+
+## 5. 适配器设计原则
+
+队伍特有的通信协议转换应放在 Rust 仿真核心之外。
+
+例如：
 
 ```text
-Native Bridge <-> ROS 2 adapter <-> your ROS 2 auto-aim
-Native Bridge <-> Talos adapter  <-> shared-memory auto-aim
-Native Bridge <-> C++ client     <-> existing non-ROS pipeline
+Native Bridge <-> ROS 2 适配器 <-> 你的 ROS 2 自瞄项目
+Native Bridge <-> Talos 适配器  <-> 共享内存自瞄项目
+Native Bridge <-> C++ 客户端    <-> 已有非 ROS 自瞄链路
 ```
 
-This lets the same benchmark compare different auto-aim codebases without changing simulation physics or scoring.
-
-## Operator gating semantics
-
-The command packet remains intentionally simple:
-
-```json
-{"yaw_deg": 12.5, "pitch_deg": -4.2, "fire": true}
-```
-
-In interactive mode this packet is **advice/control input**, not unconditional actuation:
-
-- yaw/pitch are applied only while the operator holds RMB and the packet is fresh;
-- `fire=true` can spawn a projectile only while RMB and LMB are both held;
-- if the command age exceeds `operator.command_timeout_s`, the fire gate is forced false.
-
-Automated Benchmark can emulate RMB+LMB, but never emulates external `fire=true`.
-
-Telemetry additionally exposes:
-
-- `auto_aim_enabled`
-- `operator_trigger_held`
-- `external_fire_advice`
-- `external_command_fresh`
-- `shooter_pose`
-
-These fields let a client/logging tool distinguish planner advice from the final operator-gated actuation state.
+这样可以在不修改仿真物理、相机模型与统计逻辑的情况下，使用同一套 Benchmark 比较多个不同的自瞄代码库。

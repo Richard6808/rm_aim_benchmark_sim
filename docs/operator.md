@@ -1,85 +1,118 @@
-# Interactive operator mode
+# 人工操作模式
 
-The standalone simulator supports an operator workflow intended to feel like a RoboMaster driver/vision test station while keeping the external auto-aim software in the loop.
+独立仿真器提供一套接近 RoboMaster 操作手 / 视觉联调场景的人工操作方式，同时保证外部自瞄程序仍然处于完整闭环中。
 
-## Controls
+## 操作方式
 
-| Input | Action |
+| 输入 | 功能 |
 |---|---|
-| `W` / `A` / `S` / `D` | translate the shooter chassis/root |
-| mouse movement | manual gimbal yaw/pitch while auto-aim is not enabled |
-| hold right mouse button | enable external auto-aim control of gimbal yaw/pitch |
-| hold left mouse button | operator firing permission/trigger |
-| `F1` | capture/release the cursor so the egui panel can be used |
+| `W` / `A` / `S` / `D` | 控制射击机器人逻辑底盘平移 |
+| 鼠标移动 | 未启用自瞄时，手动控制云台 yaw / pitch |
+| 按住鼠标右键 | 启用外部自瞄，由外部程序接管云台 yaw / pitch |
+| 按住鼠标左键 | 操作手允许开火 / 扣下发射扳机 |
+| `F1` | 锁定或释放鼠标，用于在操作模式和 egui 参数面板之间切换 |
 
-By default WASD is relative to the current gimbal yaw, which makes `W` move in the horizontal viewing direction. Set `operator.move_relative_to_gimbal = false` to use fixed world axes instead.
+默认情况下，WASD 的移动方向相对于当前云台 yaw。
 
-When the cursor is released with `F1`, interactive RMB/LMB actuation is disabled so clicks on the control panel cannot accidentally enable auto-aim or fire.
+因此，`W` 表示沿当前水平视线方向前进，操作体验更接近第一人称控制。
 
-## Auto-aim arbitration
+如果希望 WASD 始终使用固定世界坐标轴，可以配置：
 
-The simulator always receives and caches the newest native `GimbalCommand`, but in interactive mode the external command is only allowed to steer the gimbal while RMB is held.
-
-```text
-RMB released
-    mouse motion
-        ↓
-manual yaw / pitch
-
-RMB held + fresh external command
-        ↓
-external yaw / pitch
+```toml
+[operator]
+move_relative_to_gimbal = false
 ```
 
-A stale/disconnected command cannot fire. `operator.command_timeout_s` controls the freshness window.
+使用 `F1` 释放鼠标后，RMB / LMB 的交互控制会被暂时禁用，这样点击控制面板时不会误启用自瞄或误发射弹丸。
 
-## Fire gate
+## 自瞄控制权仲裁
 
-Interactive firing deliberately requires all of these conditions at the same time:
+仿真器会持续接收并缓存最新的 Native `GimbalCommand`，但在人工模式下，只有操作手按住鼠标右键时，外部命令才允许控制云台。
 
 ```text
-RMB held
+RMB 松开
+    鼠标移动
+        ↓
+人工 yaw / pitch
+
+RMB 按住 + 外部命令有效
+        ↓
+外部自瞄 yaw / pitch
+```
+
+如果外部命令已经超时或通信断开，则不允许触发开火。
+
+命令有效时间窗口由下面的配置项控制：
+
+```text
+operator.command_timeout_s
+```
+
+## 开火门控
+
+人工模式下，真正生成弹丸必须同时满足以下所有条件：
+
+```text
+RMB 按住
    AND
-LMB held
+LMB 按住
    AND
-external command is fresh
+外部命令仍然有效
    AND
 external fire == true
    AND
-projectile cooldown is ready
+弹丸发射冷却已经完成
         ↓
-spawn one physical 17 mm projectile
+生成一颗真实的 17 mm 物理弹丸
 ```
 
-So:
+因此：
 
-- the auto-aim planner decides whether it recommends firing;
-- the human operator still decides whether firing is permitted by holding LMB;
-- simply holding LMB never bypasses the auto-aim fire gate;
-- simply receiving `fire=true` never fires unless auto-aim is enabled and the operator trigger is held.
+- 自瞄 Planner 决定当前是否建议开火；
+- 操作手仍然通过按住 LMB 决定是否允许发射；
+- 仅按住 LMB 不会绕过自瞄的开火门控；
+- 仅收到 `fire=true` 也不会自动开火，必须同时启用自瞄并按住操作手扳机。
 
-## Manual score statistics
+## 人工模式统计
 
-Interactive and automated modes share the same `ScoreBoard` and armor collision path. The simulator counts **physical spawned projectiles**, not mouse clicks or fire commands.
+人工模式与自动 Benchmark 模式共用同一个 `ScoreBoard` 和装甲板碰撞链路。
 
-- `Shots`: actual projectiles spawned from the muzzle.
-- `Hits`: unique spawned projectiles that collide with an armor plate.
-- `Hit rate`: `Hits / Shots`.
-- `Rolling DPS`: armor damage accumulated in the configured rolling window divided by that window length.
-- `Peak rolling DPS`: maximum rolling DPS observed in the current score session.
-- `Kill time`: starts at the first actual projectile of a manual score session and ends when target HP first reaches zero.
+仿真器统计的是**真实生成的物理弹丸**，而不是鼠标点击次数或 `fire` 命令数量。
 
-`Reset statistics` clears the score and HP. In manual mode the timer does not start until the next projectile is actually emitted.
+- `Shots`：从枪口实际生成的弹丸数量；
+- `Hits`：与任意装甲板发生有效碰撞的唯一弹丸数量；
+- `Hit rate`：`Hits / Shots`；
+- `Rolling DPS`：配置滚动时间窗口内累计装甲板伤害除以窗口长度；
+- `Peak rolling DPS`：当前统计周期中出现过的最大滚动 DPS；
+- `Kill time`：人工统计周期中，从第一颗真实弹丸发射开始，到靶车 HP 第一次下降到 0 的时间。
 
-## Automated Benchmark interaction
+点击 `Reset statistics` 后会清空统计数据并恢复靶车 HP。
 
-The Benchmark Runner must remain unattended. With the default:
+人工模式下，统计计时器**不会在点击 Reset 时立刻开始**，而是等下一颗真实弹丸实际发射时才开始计时，因此人工瞄准和准备阶段不会稀释 DPS。
+
+## 与自动 Benchmark 的关系
+
+Benchmark Runner 需要能够无人值守运行。
+
+默认配置为：
 
 ```toml
 [operator]
 benchmark_auto_hold_inputs = true
 ```
 
-Benchmark mode emulates holding RMB and LMB. It **does not** emulate `fire=true`; the external auto-aim still has to send fire advice for every shot. Therefore planner/fire-gate failures remain measurable.
+在自动 Benchmark 中，相当于仿真器自动模拟持续按住 RMB 与 LMB。
 
-WASD movement is disabled while an automated benchmark is active and the shooter pose is reset to the canonical origin for every trial, preserving distance definitions and repeatability.
+但它**不会模拟 `fire=true`**。
+
+外部自瞄仍然必须根据自身 Planner / Shooter 逻辑给出开火建议，仿真器才会真正生成弹丸。
+
+因此，Planner 不开火、开火阈值过严、火控失效等问题仍然会反映在 Benchmark 结果中。
+
+自动 Benchmark 运行期间：
+
+- WASD 人工移动会被禁用；
+- 每个 Trial 开始时都会把射击机器人恢复到标准原点；
+- 靶车按照指定测试距离重新放置。
+
+这样可以保证距离定义与重复试验结果具有可复现性。

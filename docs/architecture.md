@@ -1,121 +1,145 @@
-# Architecture
+# 项目架构
 
-## Goal
+## 设计目标
 
-The simulator is an external test instrument for an auto-aim system, not an auto-aim implementation itself.
-It should make the external program believe it is operating a minimal robot sensor/actuator loop while retaining deterministic ground-truth collision scoring.
+本仿真器定位为**外部自瞄系统的测试仪器**，而不是自瞄算法本身。
 
-## Runtime data flow
+它的目标是让外部自瞄程序感受到一个最小但完整的机器人“传感器—执行器”闭环，同时由仿真器内部保留确定性的真实碰撞判定与命中统计。
+
+## 运行时数据流
 
 ```text
-Bevy 3D world
+Bevy 三维世界
   │
-  ├─ target motion system ────────────────┐
-  │                                       │
-  ├─ off-screen aim camera ── JPEG ───────┼── Native Bridge ──► auto-aim
-  │                                       │                    detector
-  ├─ gimbal/camera/muzzle telemetry ──────┤                    tracker
-  │                                       │                    predictor
-  │                                       │                    planner
-  │                                       │                       │
-  │                                       │                       ▼
-  └─ projectile + armor collision ◄───────┴── yaw/pitch/fire ◄────┘
+  ├─ 靶车运动系统 ───────────────────────┐
+  │                                      │
+  ├─ 离屏自瞄相机 ─────── JPEG ──────────┼── Native Bridge ──► 外部自瞄
+  │                                      │                    Detector
+  ├─ 云台 / 相机 / 枪口遥测 ─────────────┤                    Tracker
+  │                                      │                    Predictor
+  │                                      │                    Planner
+  │                                      │                       │
+  │                                      │                       ▼
+  └─ 弹丸 + 装甲板碰撞 ◄─────────────────┴── yaw/pitch/fire ◄────┘
                 │
                 ├─ HP
-                ├─ hit rate
-                ├─ rolling DPS
-                ├─ kill time
-                └─ benchmark CSV
+                ├─ 命中率
+                ├─ 滚动 DPS
+                ├─ 击杀时间
+                └─ Benchmark CSV
 ```
 
-## Modules
+## 模块说明
 
 ### `scene.rs`
-Creates every visible/collidable object procedurally:
 
-- ground/reference marks
-- invisible/logical shooter chassis root
-- gimbal
-- barrel
-- muzzle
-- target root
-- four armor plates
+以程序化方式创建所有可见对象和可碰撞对象，包括：
 
-There is no target chassis mesh/collider.
+- 地面与参考标记；
+- 射击机器人逻辑根节点；
+- 云台；
+- 枪管；
+- 枪口；
+- 靶车根节点；
+- 四块装甲板。
+
+靶车不存在额外的底盘网格或底盘碰撞体，因此弹丸只有真正碰到四块装甲板之一才会被判定为命中。
 
 ### `camera.rs`
-Creates one off-screen 3D camera as a child of the gimbal and one 2D preview camera.
-The off-screen image is:
 
-1. shown as the application background,
-2. captured,
-3. JPEG encoded,
-4. pushed to the Native Bridge.
+创建一台挂载在云台下的离屏三维相机，以及一台用于画面预览的二维相机。
 
-Therefore the external client sees the same view as the user sees behind the control panel.
+离屏相机生成的图像会依次用于：
+
+1. 作为应用窗口中的相机画面显示；
+2. 被捕获到内存；
+3. 编码为 JPEG；
+4. 通过 Native Bridge 发送给外部自瞄程序。
+
+因此，外部自瞄客户端收到的图像与用户在控制面板背景中看到的画面来自同一个相机视角。
 
 ### `network.rs` / `protocol.rs`
-The project-independent IPC boundary.
 
-- command RX: UDP JSON
-- telemetry TX: UDP JSON
-- camera TX: TCP framed JPEG
+这两个模块构成与具体自瞄项目无关的 IPC 通信边界。
 
-No ROS 2 or team-specific message type is linked into the core binary.
+- 控制命令接收：UDP JSON；
+- 遥测数据发送：UDP JSON；
+- 相机图像发送：TCP 分帧 JPEG。
+
+Rust 仿真核心不直接链接 ROS 2，也不依赖任何队伍特有的消息类型。
 
 ### `control.rs`
-Owns operator/auto-aim arbitration and target motion. It:
 
-- caches external yaw/pitch/fire commands independently of operator mode,
-- maps WASD to shooter-root translation,
-- maps raw mouse motion to manual gimbal targets,
-- switches gimbal ownership to external auto-aim while RMB is held,
-- builds the final fire gate from RMB + LMB + command freshness + external fire advice,
-- rate-limits physical gimbal motion,
-- updates target motion from absolute simulation time.
+负责读取最新控制命令、限制云台实际运动速度，并根据绝对仿真时间更新靶车运动。
 
-Automated benchmark mode can emulate RMB+LMB without bypassing external fire advice.
+人工操作模式下，该模块还负责在鼠标人工控制与外部自瞄控制之间进行控制权仲裁。
 
 ### `projectile.rs`
-Spawns 17 mm projectiles from the muzzle, applies physics velocity, enables continuous collision detection, and registers armor collision events.
 
-Only a projectile colliding with an armor entity increments hit statistics.
+负责：
+
+- 从枪口生成直径 17 mm 的弹丸；
+- 设置弹丸初速度；
+- 交由物理引擎处理运动；
+- 启用连续碰撞检测；
+- 注册装甲板碰撞事件。
+
+只有 `Projectile` 与装甲板实体发生碰撞时，才会增加命中统计。
 
 ### `benchmark.rs`
-Owns the sweep and evaluation state machine.
-It deliberately counts **actual spawned projectiles**, not fire commands.
-This preserves the behavior of the external planner/fire gate as part of the benchmark.
+
+负责自动测试参数遍历以及试验状态机。
+
+Benchmark 统计的是**实际生成的物理弹丸数量**，而不是 `fire` 命令次数。
+
+这样可以把外部自瞄程序中的 Planner、开火门控、通信延迟以及实际发射节奏都纳入测试结果。
 
 ### `ui.rs`
-Runtime operator controls and benchmark progress.
 
-## Coordinate system
+提供运行时控制界面，包括：
 
-Bevy world convention used by this project:
+- 靶车运动参数；
+- HP 与伤害参数；
+- 实时命中统计；
+- Benchmark 运行状态与进度。
 
-- `+X`: screen/world right
-- `+Y`: up
-- shooter looks approximately toward `-Z` at zero yaw/pitch
-- muzzle forward axis: local `-Z`
-- camera is rigidly attached to the gimbal
+## 坐标系
 
-The target starts at `(0, 0, -distance)`.
+本项目采用 Bevy 世界坐标约定：
 
-See `protocol.md` for command signs and quaternion ordering.
+- `+X`：世界坐标右侧；
+- `+Y`：竖直向上；
+- 零 yaw / pitch 时，射击机器人近似朝向世界 `-Z`；
+- 枪口前向轴为局部坐标 `-Z`；
+- 相机刚性安装在云台上。
 
-## Reproducibility
+靶车初始位置为：
 
-A benchmark run saves `effective_config.toml` and `benchmark_meta.csv` beside results.
-Important physical conditions include:
+```text
+(0, 0, -distance)
+```
 
-- camera resolution/FPS/FOV
-- camera-to-gimbal translation
-- physics fixed Hz
-- gravity
-- projectile diameter/speed/mass/cooldown
-- target geometry
-- target path and translation space
-- HP/damage model
-- warmup/timeout/drain timing
+控制命令正负号约定以及四元数排列顺序见 [`protocol.md`](protocol.md)。
 
-Changing one of these should be treated as changing the benchmark environment.
+## 可复现性
+
+每次 Benchmark 运行都会在结果目录中保存：
+
+```text
+effective_config.toml
+benchmark_meta.csv
+```
+
+需要重点保持一致的物理与测试条件包括：
+
+- 相机分辨率、帧率和 FOV；
+- 相机相对云台的平移位置；
+- 物理固定更新频率；
+- 重力参数；
+- 弹丸直径、速度、质量与发射冷却；
+- 靶车几何尺寸；
+- 靶车运动轨迹与平移空间；
+- HP / 伤害模型；
+- Warmup、Timeout、Drain 等测试阶段的时间参数。
+
+只要修改其中任何一项，都应视为 Benchmark 测试环境发生了变化。在比较不同自瞄算法版本时，应尽量保证这些配置完全一致。
