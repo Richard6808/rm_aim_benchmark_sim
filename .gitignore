@@ -1,0 +1,6 @@
+/target/
+benchmark_results/
+*.png
+*.jpg
+*.jpeg
+.DS_Store
