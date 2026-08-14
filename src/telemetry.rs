@@ -50,7 +50,7 @@ pub fn publish_telemetry(
     let muzzle = muzzle.into_inner();
     let camera = camera.into_inner();
     let packet = TelemetryPacket {
-        protocol: "rm-aim-sim/2",
+        protocol: "rm-aim-sim/3",
         timestamp_ns: SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_nanos())
@@ -75,7 +75,7 @@ pub fn publish_telemetry(
         },
         target_hp: target.hp,
         target_max_hp: target.max_hp,
-        target_rpm: target.rpm,
+        target_angular_speed_rad_s: target.angular_speed_rad_s,
         target_translation_speed_mps: target.translation_speed_mps,
         shots: score.shots,
         hits: score.hits,

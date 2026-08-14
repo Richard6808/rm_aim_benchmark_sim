@@ -211,7 +211,7 @@ fn spawn_target(
     commands.insert_resource(TargetRuntime {
         origin,
         phase_start_s: 0.0,
-        rpm: config.target.rpm,
+        angular_speed_rad_s: config.target.angular_speed_rad_s,
         translation_speed_mps: config.target.translation_speed_mps,
         half_extent_x_m: config.target.half_extent_x_m,
         half_extent_z_m: config.target.half_extent_z_m,

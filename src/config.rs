@@ -190,7 +190,8 @@ pub struct TargetConfig {
     pub armor_light_emissive_width_m: f32,
     pub front_back_radius_m: f32,
     pub left_right_radius_m: f32,
-    pub rpm: f32,
+    /// Signed target angular velocity in radians per second.
+    pub angular_speed_rad_s: f32,
     pub path: TargetPath,
     pub translation_speed_mps: f32,
     pub half_extent_x_m: f32,
@@ -214,7 +215,7 @@ impl Default for TargetConfig {
             armor_light_emissive_width_m: 0.007,
             front_back_radius_m: 0.280,
             left_right_radius_m: 0.280,
-            rpm: 60.0,
+            angular_speed_rad_s: std::f32::consts::TAU,
             path: TargetPath::LineX,
             translation_speed_mps: 1.0,
             half_extent_x_m: 2.0,
@@ -277,7 +278,7 @@ impl Default for NetworkConfig {
 #[serde(default)]
 pub struct BenchmarkConfig {
     pub distances_m: Vec<f32>,
-    pub rpms: Vec<f32>,
+    pub angular_speeds_rad_s: Vec<f32>,
     pub translation_speeds_mps: Vec<f32>,
     pub rounds_per_trial: u32,
     pub repeats_per_condition: u32,
@@ -293,7 +294,13 @@ impl Default for BenchmarkConfig {
     fn default() -> Self {
         Self {
             distances_m: vec![3.0, 5.0, 7.0, 10.0],
-            rpms: vec![0.0, 30.0, 60.0, 120.0, 180.0],
+            angular_speeds_rad_s: vec![
+                0.0,
+                std::f32::consts::PI,
+                std::f32::consts::TAU,
+                2.0 * std::f32::consts::TAU,
+                3.0 * std::f32::consts::TAU,
+            ],
             translation_speeds_mps: vec![0.0, 1.0, 2.0, 3.0],
             rounds_per_trial: 100,
             repeats_per_condition: 1,

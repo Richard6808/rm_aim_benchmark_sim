@@ -107,7 +107,7 @@ impl Default for OperatorState {
 pub struct TargetRuntime {
     pub origin: Vec3,
     pub phase_start_s: f64,
-    pub rpm: f32,
+    pub angular_speed_rad_s: f32,
     pub translation_speed_mps: f32,
     pub half_extent_x_m: f32,
     pub half_extent_z_m: f32,

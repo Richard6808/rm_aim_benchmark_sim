@@ -1,6 +1,6 @@
 # Native Bridge 通信协议
 
-协议版本：`rm-aim-sim/1`
+协议版本：`rm-aim-sim/3`
 
 Native Bridge 的设计目标是保持简单、跨语言，并且与具体队伍的自瞄框架解耦。
 
@@ -50,7 +50,7 @@ Native Bridge 的设计目标是保持简单、跨语言，并且与具体队伍
 
 ```json
 {
-  "protocol": "rm-aim-sim/1",
+  "protocol": "rm-aim-sim/3",
   "timestamp_ns": 1786610000000000000,
   "gimbal_yaw_deg": 12.1,
   "gimbal_pitch_deg": -4.0,
@@ -76,7 +76,7 @@ Native Bridge 的设计目标是保持简单、跨语言，并且与具体队伍
   },
   "target_hp": 470.0,
   "target_max_hp": 500.0,
-  "target_rpm": 120.0,
+  "target_angular_speed_rad_s": 12.566371,
   "target_translation_speed_mps": 2.0,
   "shots": 25,
   "hits": 13,
@@ -90,6 +90,7 @@ Native Bridge 的设计目标是保持简单、跨语言，并且与具体队伍
 
 - `timestamp_ns` 为 Unix / 系统时钟纳秒时间戳；
 - 所有平移量单位均为米，使用世界坐标系；
+- `target_angular_speed_rad_s` 的单位为 rad/s，正负号表示相反的旋转方向；
 - 四元数排列顺序为 `[x, y, z, w]`；
 - 核心模型中的相机视为理想针孔相机；
 - 当前畸变系数默认为 0，除非未来显式加入带畸变的相机模型。

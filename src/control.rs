@@ -1,5 +1,3 @@
-use std::f32::consts::TAU;
-
 use bevy::{
     input::mouse::AccumulatedMouseMotion,
     prelude::*,
@@ -193,7 +191,7 @@ pub fn update_target_motion(
     }
 
     let t = (time.elapsed_secs_f64() - target.phase_start_s).max(0.0) as f32;
-    let yaw = target.rpm * TAU / 60.0 * t;
+    let yaw = target.angular_speed_rad_s * t;
     let mut p = target.origin;
     let ax = target.half_extent_x_m.max(0.0);
     let az = target.half_extent_z_m.max(0.0);

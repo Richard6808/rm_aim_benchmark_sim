@@ -43,7 +43,7 @@
 
 - 程序化生成四装甲板靶车，不依赖 GLB 或外部模型资源。
 - 前后装甲与左右装甲的半径可以独立配置。
-- 靶车支持按 RPM 旋转。
+- 靶车旋转角速度统一使用 rad/s。
 - 靶车支持多种平移轨迹：
   - 静止
   - X 方向正弦运动
@@ -68,11 +68,11 @@
   - 手动瞄准时按住鼠标左键直接开火；
   - 按住右键进入自瞄后，只有自瞄同时给出 `fire=true` 才真正发射弹丸；
   - 人工测试与自动测试使用同一套命中率、DPS、HP 和弹丸物理统计。
-- 支持自动遍历 `距离 × RPM × 平移速度` 的 Benchmark。
+- 支持自动遍历 `距离 × 旋转角速度（rad/s）× 平移速度` 的 Benchmark。
 - Benchmark 使用 `Warmup -> Running -> Drain` 状态机。
 - Benchmark 不会绕过自瞄程序强制开火，最终开火仍由外部自瞄的 `fire` 决定。
-- 自动导出每次试验、工况聚合、RPM 性能退化以及完整配置快照 CSV。
-- 提供 Python 绘图工具，可生成命中率、DPS、击杀成功率、平均击杀时间和 RPM 退化曲线。
+- 自动导出每次试验、工况聚合、角速度性能退化以及完整配置快照 CSV。
+- 提供 Python 绘图工具，可生成命中率、DPS、击杀成功率、平均击杀时间和角速度退化曲线。
 
 ## 3. 技术栈
 
@@ -434,7 +434,7 @@ Benchmark 期间会禁用 WASD，并在每个 trial 开始前重新复位射击�
 ```toml
 [benchmark]
 distances_m = [3.0, 5.0, 7.0, 10.0]
-rpms = [0.0, 30.0, 60.0, 120.0, 180.0]
+angular_speeds_rad_s = [0.0, 3.1415927, 6.2831855, 12.566371, 18.849556]
 translation_speeds_mps = [0.0, 1.0, 2.0, 3.0]
 rounds_per_trial = 100
 repeats_per_condition = 1
@@ -443,12 +443,14 @@ case_timeout_s = 20.0
 post_fire_grace_s = 1.2
 ```
 
+旧配置键 `rpm` / `rpms` 已分别替换为 `angular_speed_rad_s` / `angular_speeds_rad_s`。换算公式为 `rad/s = RPM × 2π / 60`。
+
 即：
 
 ```text
 4 个距离
 ×
-5 个 RPM
+5 个旋转角速度
 ×
 4 个平移速度
 =
@@ -498,7 +500,7 @@ benchmark_results/run_<unix-time>/
 ├── effective_config.toml
 ├── trials.csv
 ├── conditions.csv
-└── rpm_degradation.csv
+└── angular_speed_degradation.csv
 ```
 
 ### trials.csv
@@ -521,14 +523,14 @@ benchmark_results/run_<unix-time>/
 对相同：
 
 ```text
-distance × RPM × translation speed
+distance × angular_speed_rad_s × translation speed
 ```
 
 的重复试验进行聚合。
 
-### rpm_degradation.csv
+### angular_speed_degradation.csv
 
-按 RPM 进一步聚合，并在存在 `0 RPM` 基线时计算相对性能退化。
+按旋转角速度进一步聚合，并在存在 `0 rad/s` 静止基线时计算相对性能退化。
 
 可以绘图：
 
@@ -539,10 +541,10 @@ python3 scripts/plot_benchmark.py benchmark_results/run_<unix-time>
 
 用于生成：
 
-- 命中率随 RPM 变化曲线
-- DPS 随 RPM 变化曲线
-- Kill Success 随 RPM 变化曲线
-- 平均 TTK 随 RPM 变化曲线
+- 命中率随角速度变化曲线
+- DPS 随角速度变化曲线
+- Kill Success 随角速度变化曲线
+- 平均 TTK 随角速度变化曲线
 - Hit Rate Degradation 曲线
 - DPS Degradation 曲线
 

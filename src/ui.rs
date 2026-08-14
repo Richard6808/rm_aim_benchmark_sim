@@ -62,8 +62,9 @@ pub fn control_panel(
                         }
                     });
                 ui.add(
-                    egui::Slider::new(&mut target.rpm, -300.0..=300.0)
-                        .text("旋转速度 RPM"),
+                    egui::Slider::new(&mut target.angular_speed_rad_s, -31.4159..=31.4159)
+                        .text("旋转角速度")
+                        .suffix(" rad/s"),
                 );
                 ui.add(
                     egui::Slider::new(&mut target.translation_speed_mps, 0.0..=5.0)
@@ -220,13 +221,13 @@ pub fn control_panel(
             ui.separator();
             ui.heading("自动评测");
             let total_conditions = config.benchmark.distances_m.len()
-                * config.benchmark.rpms.len()
+                * config.benchmark.angular_speeds_rad_s.len()
                 * config.benchmark.translation_speeds_mps.len()
                 * config.benchmark.repeats_per_condition as usize;
             ui.label(format!(
                 "参数扫描：{} 个距离 × {} 个转速 × {} 个平移速度 × {} 次重复 = {} 组测试",
                 config.benchmark.distances_m.len(),
-                config.benchmark.rpms.len(),
+                config.benchmark.angular_speeds_rad_s.len(),
                 config.benchmark.translation_speeds_mps.len(),
                 config.benchmark.repeats_per_condition,
                 total_conditions
@@ -271,8 +272,11 @@ pub fn control_panel(
             }
             if let Some(case) = &benchmark.current {
                 ui.label(format!(
-                    "当前参数：{:.1} m | {:.0} RPM | {:.1} m/s | 第 {} 次",
-                    case.distance_m, case.rpm, case.translation_speed_mps, case.repeat
+                    "当前参数：{:.1} m | {:.3} rad/s | {:.1} m/s | 第 {} 次",
+                    case.distance_m,
+                    case.angular_speed_rad_s,
+                    case.translation_speed_mps,
+                    case.repeat
                 ));
             }
             if let Some(path) = &benchmark.output_dir {

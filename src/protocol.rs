@@ -42,7 +42,7 @@ pub struct TelemetryPacket {
     pub camera_info: CameraInfoWire,
     pub target_hp: f32,
     pub target_max_hp: f32,
-    pub target_rpm: f32,
+    pub target_angular_speed_rad_s: f32,
     pub target_translation_speed_mps: f32,
     pub shots: u64,
     pub hits: u64,

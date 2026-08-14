@@ -59,7 +59,8 @@ armor_light_height_m = 0.059
 armor_light_emissive_width_m = 0.007
 front_back_radius_m = 0.280
 left_right_radius_m = 0.280
-rpm = 60.0
+# Signed angular velocity. 2π rad/s equals 60 RPM.
+angular_speed_rad_s = 6.2831855
 path = "line_x"
 translation_speed_mps = 1.0
 half_extent_x_m = 2.0
@@ -88,7 +89,8 @@ telemetry_hz = 120.0
 
 [benchmark]
 distances_m = [3.0, 5.0, 7.0, 10.0]
-rpms = [0.0, 30.0, 60.0, 120.0, 180.0]
+# Equivalent to the former 0, 30, 60, 120 and 180 RPM sweep.
+angular_speeds_rad_s = [0.0, 3.1415927, 6.2831855, 12.566371, 18.849556]
 translation_speeds_mps = [0.0, 1.0, 2.0, 3.0]
 rounds_per_trial = 100
 repeats_per_condition = 1
