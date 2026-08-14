@@ -33,11 +33,18 @@ pub fn control_panel(
     let now = time.elapsed_secs_f64();
     let average_dps = score.average_dps(now);
     let rolling_dps = score.rolling_dps(now, config.benchmark.dps_window_s);
+    let mut viewport_ui = egui::Ui::new(
+        ctx.clone(),
+        "aimsim_viewport".into(),
+        egui::UiBuilder::new()
+            .layer_id(egui::LayerId::background())
+            .max_rect(ctx.viewport_rect()),
+    );
 
-    egui::SidePanel::right("aimsim_control")
-        .default_width(320.0)
+    egui::Panel::right("aimsim_control")
+        .default_size(320.0)
         .resizable(true)
-        .show(ctx, |ui| {
+        .show(&mut viewport_ui, |ui| {
             ui.heading("RoboMaster AimSim");
             ui.small("Camera view is the actual image exported to the auto-aim client.");
             ui.separator();
@@ -97,7 +104,7 @@ pub fn control_panel(
                 ui.label("Hold RMB enable external auto-aim");
                 ui.label("Hold LMB operator trigger");
                 ui.label("Fire = RMB + LMB + fresh auto-aim fire=true");
-                ui.label("F1       capture/release cursor for this panel");
+                ui.label("F1       enter/leave robot control");
                 ui.separator();
 
                 ui.label(format!(
@@ -106,7 +113,7 @@ pub fn control_panel(
                     if operator.trigger_held { "HELD" } else { "released" },
                     if operator.command_fresh { "fresh" } else { "STALE/NONE" }
                 ));
-                ui.label(format!("Cursor: {}", if operator.cursor_captured { "CAPTURED" } else { "released (GUI mode)" }));
+                ui.label(format!("Mode: {}", if operator.cursor_captured { "ROBOT CONTROL" } else { "GUI (press F1 to control)" }));
                 ui.label(format!(
                     "Auto-aim advice: yaw {:+.2}°, pitch {:+.2}°, fire {}",
                     external.yaw_deg, external.pitch_deg, external.fire_advice
@@ -262,7 +269,7 @@ pub fn control_panel(
             });
 
             ui.separator();
-            ui.small("Manual session score uses the same physical projectiles and armor-hit events as Benchmark. F1 releases/captures the cursor.");
+            ui.small("Manual session score uses the same physical projectiles and armor-hit events as Benchmark. Press F1 to enter or leave robot control.");
         });
 
     Ok(())

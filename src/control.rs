@@ -43,7 +43,7 @@ pub fn receive_external_commands(
 /// - Mouse: manually steer gimbal when RMB is not held.
 /// - Hold RMB: external auto-aim owns yaw/pitch.
 /// - Hold LMB while RMB is held: permits firing, but only when external `fire=true`.
-/// - F1: toggle cursor capture so the egui control panel can be used.
+/// - F1: enter/leave robot control by toggling cursor capture.
 ///
 /// Automated benchmark mode can emulate holding RMB+LMB, keeping CI unattended.
 #[allow(clippy::too_many_arguments)]
@@ -83,7 +83,7 @@ pub fn operator_input(
 
     // Manual chassis movement is deliberately disabled during automated benchmark cases so every
     // case starts from an identical, reproducible shooter pose.
-    if !gate.benchmark_active {
+    if !gate.benchmark_active && operator.cursor_captured {
         let mut axis = Vec2::ZERO;
         if keyboard.pressed(KeyCode::KeyW) {
             axis.y += 1.0;
@@ -166,7 +166,7 @@ pub fn update_gimbal_pose(
 
 pub fn update_target_motion(
     time: Res<Time>,
-    mut target: ResMut<TargetRuntime>,
+    target: Res<TargetRuntime>,
     mut transform: Single<&mut Transform, With<TargetRoot>>,
 ) {
     if target.freeze_when_dead && target.hp <= 0.0 {

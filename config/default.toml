@@ -35,13 +35,13 @@ max_pitch_speed_dps = 540.0
 #   mouse = manual gimbal aim
 #   hold RMB = enable external auto-aim yaw/pitch
 #   hold LMB = operator trigger; a projectile is emitted only when RMB is also held and auto-aim fire=true
-#   F1 = release/capture cursor for the control panel
+#   F1 = enter/leave robot control (the cursor starts released for GUI use)
 chassis_move_speed_mps = 2.5
 mouse_sensitivity_yaw_deg = 0.12
 mouse_sensitivity_pitch_deg = 0.10
 move_relative_to_gimbal = true
 command_timeout_s = 0.35
-cursor_grab_on_start = true
+cursor_grab_on_start = false
 benchmark_auto_hold_inputs = true
 
 [target]

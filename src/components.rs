@@ -98,7 +98,7 @@ impl Default for OperatorState {
             auto_aim_enabled: false,
             trigger_held: false,
             command_fresh: false,
-            cursor_captured: true,
+            cursor_captured: false,
         }
     }
 }

@@ -15,7 +15,7 @@ pub fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     config: Res<SimConfig>,
 ) {
-    commands.insert_resource(AmbientLight {
+    commands.insert_resource(GlobalAmbientLight {
         color: Color::WHITE,
         brightness: 350.0,
         ..default()

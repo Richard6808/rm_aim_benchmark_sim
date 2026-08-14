@@ -149,7 +149,7 @@ pub struct OperatorConfig {
     pub move_relative_to_gimbal: bool,
     /// Native auto-aim command freshness timeout. Stale commands can never fire.
     pub command_timeout_s: f64,
-    /// Capture/lock the pointer at startup. F1 toggles capture so the GUI can be used.
+    /// Capture/lock the pointer at startup. Keep this false to require F1 before robot control.
     pub cursor_grab_on_start: bool,
     /// Automated benchmark emulates holding RMB + LMB so it can run unattended.
     pub benchmark_auto_hold_inputs: bool,
@@ -163,7 +163,7 @@ impl Default for OperatorConfig {
             mouse_sensitivity_pitch_deg: 0.10,
             move_relative_to_gimbal: true,
             command_timeout_s: 0.35,
-            cursor_grab_on_start: true,
+            cursor_grab_on_start: false,
             benchmark_auto_hold_inputs: true,
         }
     }
