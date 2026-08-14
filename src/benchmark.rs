@@ -29,11 +29,11 @@ pub enum BenchmarkPhase {
 impl BenchmarkPhase {
     pub fn label(self) -> &'static str {
         match self {
-            Self::Idle => "Idle",
-            Self::Warmup => "Warmup",
-            Self::Running => "Running",
-            Self::Drain => "Drain",
-            Self::Finished => "Finished",
+            Self::Idle => "空闲",
+            Self::Warmup => "预热中",
+            Self::Running => "测试中",
+            Self::Drain => "等待弹丸结算",
+            Self::Finished => "已完成",
         }
     }
 

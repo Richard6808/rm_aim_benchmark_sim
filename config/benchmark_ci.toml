@@ -46,9 +46,13 @@ benchmark_auto_hold_inputs = true
 [target]
 initial_distance_m = 5.0
 armor_center_height_m = 0.50
-armor_width_m = 0.135
-armor_height_m = 0.055
-armor_thickness_m = 0.010
+armor_width_m = 0.140
+armor_height_m = 0.125
+armor_thickness_m = 0.012
+armor_face_width_m = 0.135
+armor_light_width_m = 0.012
+armor_light_height_m = 0.059
+armor_light_emissive_width_m = 0.007
 front_back_radius_m = 0.280
 left_right_radius_m = 0.280
 rpm = 60.0

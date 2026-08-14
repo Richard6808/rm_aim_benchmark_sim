@@ -31,11 +31,11 @@ impl TargetPath {
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::Stationary => "Stationary",
-            Self::LineX => "Line X",
-            Self::LineZ => "Line Z",
-            Self::Ellipse => "Ellipse",
-            Self::FigureEight => "Figure 8",
+            Self::Stationary => "静止",
+            Self::LineX => "沿 X 轴往复",
+            Self::LineZ => "沿 Z 轴往复",
+            Self::Ellipse => "椭圆轨迹",
+            Self::FigureEight => "8 字轨迹",
         }
     }
 }
@@ -174,9 +174,20 @@ impl Default for OperatorConfig {
 pub struct TargetConfig {
     pub initial_distance_m: f32,
     pub armor_center_height_m: f32,
+    /// Nominal overall width of the AM02 module, including its side indicators.
     pub armor_width_m: f32,
+    /// Height of the AM02 impact module.
     pub armor_height_m: f32,
+    /// Overall module depth used by the collision shape.
     pub armor_thickness_m: f32,
+    /// Width of the main impact plate inside the complete module.
+    pub armor_face_width_m: f32,
+    /// Width of one side indicator light guide.
+    pub armor_light_width_m: f32,
+    /// Height of one side indicator light guide.
+    pub armor_light_height_m: f32,
+    /// Width of the illuminated core inside the light guide.
+    pub armor_light_emissive_width_m: f32,
     pub front_back_radius_m: f32,
     pub left_right_radius_m: f32,
     pub rpm: f32,
@@ -194,9 +205,13 @@ impl Default for TargetConfig {
         Self {
             initial_distance_m: 5.0,
             armor_center_height_m: 0.50,
-            armor_width_m: 0.135,
-            armor_height_m: 0.055,
-            armor_thickness_m: 0.010,
+            armor_width_m: 0.140,
+            armor_height_m: 0.125,
+            armor_thickness_m: 0.012,
+            armor_face_width_m: 0.135,
+            armor_light_width_m: 0.012,
+            armor_light_height_m: 0.059,
+            armor_light_emissive_width_m: 0.007,
             front_back_radius_m: 0.280,
             left_right_radius_m: 0.280,
             rpm: 60.0,

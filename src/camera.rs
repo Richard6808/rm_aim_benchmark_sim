@@ -9,6 +9,7 @@ use bevy::{
     },
 };
 use image::{ExtendedColorType, codecs::jpeg::JpegEncoder};
+use bevy_egui::{EguiGlobalSettings, PrimaryEguiContext};
 
 use crate::{
     components::{AimCamera, CameraIntrinsics, Gimbal},
@@ -26,8 +27,16 @@ pub struct CameraCaptureTimer(pub Timer);
 #[derive(Resource, Default)]
 pub struct CameraSequence(pub u64);
 
-pub fn setup_preview_camera(mut commands: Commands) {
-    commands.spawn((Camera2d, Camera { order: 0, ..default() }));
+pub fn setup_preview_camera(
+    mut commands: Commands,
+    mut egui_settings: ResMut<EguiGlobalSettings>,
+) {
+    egui_settings.auto_create_primary_context = false;
+    commands.spawn((
+        Camera2d,
+        Camera { order: 0, ..default() },
+        PrimaryEguiContext,
+    ));
 }
 
 pub fn setup_capture_target(

@@ -42,7 +42,8 @@ pub fn receive_external_commands(
 /// - WASD: translate the shooter chassis/root.
 /// - Mouse: manually steer gimbal when RMB is not held.
 /// - Hold RMB: external auto-aim owns yaw/pitch.
-/// - Hold LMB while RMB is held: permits firing, but only when external `fire=true`.
+/// - Hold LMB without RMB: fire directly in manual-aim mode.
+/// - Hold LMB with RMB: fire only when a fresh external command has `fire=true`.
 /// - F1: enter/leave robot control by toggling cursor capture.
 ///
 /// Automated benchmark mode can emulate holding RMB+LMB, keeping CI unattended.
@@ -133,13 +134,31 @@ pub fn operator_input(
         .target_pitch_deg
         .clamp(config.shooter.pitch_min_deg, config.shooter.pitch_max_deg);
 
-    // Triple gate in interactive mode:
-    //   RMB(auto aim) && LMB(operator trigger) && external fire advice.
-    // Benchmark mode emulates RMB+LMB but still requires external fire advice.
-    state.fire_latched = operator.auto_aim_enabled
-        && operator.trigger_held
-        && operator.command_fresh
-        && external.fire_advice;
+    // Manual aim: LMB fires directly.
+    // External auto aim (RMB) and automated benchmarks retain the command freshness + fire advice
+    // gates, so losing the external link can never leave auto fire latched on.
+    state.fire_latched = should_latch_fire(
+        operator.trigger_held,
+        operator.auto_aim_enabled,
+        operator.cursor_captured,
+        operator.command_fresh,
+        external.fire_advice,
+    );
+}
+
+fn should_latch_fire(
+    trigger_held: bool,
+    auto_aim_enabled: bool,
+    cursor_captured: bool,
+    command_fresh: bool,
+    external_fire_advice: bool,
+) -> bool {
+    trigger_held
+        && if auto_aim_enabled {
+            command_fresh && external_fire_advice
+        } else {
+            cursor_captured
+        }
 }
 
 pub fn update_gimbal_pose(
@@ -219,6 +238,31 @@ pub fn reset_target(
     runtime.reset_hp();
     transform.translation = runtime.origin;
     transform.rotation = Quat::IDENTITY;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_latch_fire;
+
+    #[test]
+    fn manual_fire_only_needs_captured_cursor_and_trigger() {
+        assert!(should_latch_fire(true, false, true, false, false));
+        assert!(!should_latch_fire(false, false, true, false, false));
+        assert!(!should_latch_fire(true, false, false, false, false));
+    }
+
+    #[test]
+    fn auto_aim_fire_keeps_external_command_gates() {
+        assert!(should_latch_fire(true, true, true, true, true));
+        assert!(!should_latch_fire(true, true, true, false, true));
+        assert!(!should_latch_fire(true, true, true, true, false));
+        assert!(!should_latch_fire(false, true, true, true, true));
+    }
+
+    #[test]
+    fn benchmark_style_auto_fire_does_not_need_cursor_capture() {
+        assert!(should_latch_fire(true, true, false, true, true));
+    }
 }
 
 fn move_towards(current: f32, target: f32, max_delta: f32) -> f32 {

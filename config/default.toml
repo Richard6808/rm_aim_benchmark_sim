@@ -1,7 +1,7 @@
 [window]
 width = 1440
 height = 1080
-title = "RoboMaster Aim Benchmark Simulator"
+title = "RoboMaster 自动瞄准评测模拟器"
 
 [physics]
 fixed_hz = 120.0
@@ -47,10 +47,16 @@ benchmark_auto_hold_inputs = true
 [target]
 initial_distance_m = 5.0
 armor_center_height_m = 0.50
-# Procedural small-armor defaults. Change these if you want to match your own CAD/rule-year dimensions.
-armor_width_m = 0.135
-armor_height_m = 0.055
-armor_thickness_m = 0.010
+# AM02 nominal module: 140 x 125 mm. Its main impact plate is 135 mm wide.
+armor_width_m = 0.140
+armor_height_m = 0.125
+armor_thickness_m = 0.012
+armor_face_width_m = 0.135
+# Official STEP light-guide front projection: approximately 12 x 59 mm.
+armor_light_width_m = 0.012
+armor_light_height_m = 0.059
+# Illuminated core inside the 12 mm light guide.
+armor_light_emissive_width_m = 0.007
 front_back_radius_m = 0.280
 left_right_radius_m = 0.280
 rpm = 60.0
@@ -65,7 +71,7 @@ freeze_when_dead = false
 [projectile]
 # RoboMaster infantry-style 17 mm fluorescent projectile.
 diameter_m = 0.017
-speed_mps = 15.0
+speed_mps = 23.0
 mass_kg = 0.0032
 cooldown_s = 0.08
 lifetime_s = 3.0
